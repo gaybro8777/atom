@@ -4,16 +4,16 @@
   xmlns:ead="urn:isbn:1-931666-22-9" xmlns:fo="http://www.w3.org/1999/XSL/Format" version="2.0"  exclude-result-prefixes="#all">
   <!--
     *******************************************************************
-    *                                 *
-    * VERSION:      1.0                       *
-    *                                 *
-    * AUTHOR:       Winona Salesky                *
-    *           wsalesky@gmail.com              *
-    *                                 *
-    * MODIFIED BY:    mikeg@artefactual.com             *
-    *                                 *
-    * DATE:       2013-08-21                  *
-    *                                 *
+    *                                                                 *
+    * VERSION:      1.0                                               *
+    *                                                                 *
+    * AUTHOR:       Winona Salesky                                    *
+    *               wsalesky@gmail.com                                *
+    *                                                                 *
+    * MODIFIED BY:  mikeg@artefactual.com                             *
+    *                                                                 *
+    * DATE:         2013-08-21                                        *
+    *                                                                 *
     *******************************************************************
   -->
   <xsl:output method="xml" encoding="utf-8" indent="yes"/>
@@ -282,19 +282,14 @@
     <!-- Calls template with links to archive icon -->
     <fo:block border-bottom="1pt solid #666" margin-top="0in" id="cover-page">
       <fo:block xsl:use-attribute-sets="h1" linefeed-treatment="preserve">
-        <xsl:choose>
-          <xsl:when test="ead:titleproper[@type='filing']">
-            Finding Aid - <xsl:apply-templates select="ead:titleproper[@type='filing']"/>
-          </xsl:when>
-          <xsl:otherwise>
-            <fo:external-graphic src="images/pdf-logo.png"  height="4cm" width="3.5cm"
-              content-width="scale-to-fit" content-height="scale-to-fit"/>
-            <xsl:text> </xsl:text>
-            <xsl:apply-templates select="(//ead:repository/ead:corpname)[1]"/>
-            <fo:block/>
-            Finding Aid - <xsl:apply-templates select="ead:titleproper[1]"/> (<xsl:value-of select="//ead:eadid"/>)
-          </xsl:otherwise>
-        </xsl:choose>
+        <fo:external-graphic src="images/pdf-logo.png" height="4cm"
+          width="3.5cm" content-width="scale-to-fit"
+          content-height="scale-to-fit"
+        />
+        <xsl:text> </xsl:text>
+        <xsl:apply-templates select="(//ead:repository/ead:corpname)[1]"/>
+        <fo:block/>
+        Finding Aid - <xsl:apply-templates select="ead:titleproper[1]"/> (<xsl:value-of select="//ead:eadid"/>)
       </fo:block>
       <xsl:if test="ead:subtitle">
         <fo:block font-size="16" font-weight="bold"><xsl:apply-templates select="ead:subtitle"/></fo:block>
@@ -1039,6 +1034,10 @@
             <fo:block xsl:use-attribute-sets="smp">
               <xsl:value-of select="ead:listhead/ead:head01"/>
             </fo:block>
+          </fo:table-cell>
+        </fo:table-row>
+      </fo:table-body>
+    </fo:table>
   </xsl:template>
 
   <!--
@@ -1141,19 +1140,6 @@
     <xsl:apply-templates select="ead:c | ead:c01 | ead:c02 | ead:c03 | ead:c04 | ead:c05 | ead:c06 | ead:c07 | ead:c08 | ead:c09 | ead:c10 | ead:c11 | ead:c12"/>
   </xsl:template>
 
-  <!-- Named template to generate table headers -->
-  <xsl:template name="tableHeaders">
-        <fo:table-row background-color="#f7f7f9" padding-left="2pt" margin-left="2pt">
-          <fo:table-cell><fo:block>Reference code</fo:block></fo:table-cell>
-          <fo:table-cell><fo:block>Title</fo:block></fo:table-cell>
-          <fo:table-cell><fo:block>Dates</fo:block></fo:table-cell>
-          <fo:table-cell><fo:block>Physical description</fo:block></fo:table-cell>
-        </fo:table-row>
-        <xsl:apply-templates select="ead:defitem" mode="listTable"/>
-      </fo:table-body>
-    </fo:table>
-  </xsl:template>
-
   <!-- Formats ordered and definition lists -->
   <xsl:template match="ead:list">
     <xsl:apply-templates select="ead:head"/>
@@ -1211,7 +1197,9 @@
         <fo:block font-weight="bold">
           <xsl:apply-templates select="ead:label"/>
         </fo:block>
-    </xsl:template>
+      </fo:list-item-body>
+    </fo:list-item>
+  </xsl:template>
 
   <xsl:template match="ead:did" mode="itemDsc">
     <xsl:apply-templates select="ead:materialspec" mode="itemDsc"/>
@@ -1227,6 +1215,8 @@
   <xsl:template match="ead:unitdate" mode="did"><xsl:apply-templates/></xsl:template>
 
   <xsl:template match="ead:langmaterial" mode="dsc">
+    <fo:table-row>
+      <fo:table-cell xsl:use-attribute-sets="tdBorder">
         <fo:block xsl:use-attribute-sets="smpDsc">
           <fo:inline text-decoration="underline">
             <xsl:value-of select="local:tagName(.)"/>
@@ -1271,43 +1261,6 @@
       <xsl:when test="parent::ead:notestmt">
         <xsl:apply-templates/>
       </xsl:when>
-
-      <!-- Special formatting for file/item table elements -->
-      <xsl:template match="ead:origination | ead:scopecontent | ead:materialspec
-        | ead:physloc | ead:note | ead:accessrestrict | ead:userestrict" mode="itemDsc">
-        <fo:block>
-          <fo:inline font-style="italic">
-            <xsl:choose>
-              <!-- Test for label attribute used by origination element -->
-              <xsl:when test="@label">
-                <xsl:value-of select="concat(upper-case(substring(@label,1,1)),substring(@label,2))"></xsl:value-of>
-                <xsl:if test="@type"> [<xsl:value-of select="@type"/>]</xsl:if>
-                <xsl:if test="self::ead:origination">
-                  <xsl:choose>
-                    <xsl:when test="ead:persname[@role != ''] and contains(ead:persname/@role,' (')">
-                      - <xsl:value-of select="substring-before(ead:persname/@role,' (')"/>
-                    </xsl:when>
-                    <xsl:when test="ead:persname[@role != '']">
-                      - <xsl:value-of select="ead:persname/@role"/>
-                    </xsl:when>
-                    <xsl:otherwise/>
-                  </xsl:choose>
-                </xsl:if>
-              </xsl:when>
-              <xsl:otherwise>
-                <xsl:value-of select="local:tagName(.)"/>
-                <xsl:if test="@type"> [<xsl:value-of select="@type"/>]</xsl:if>
-              </xsl:otherwise>
-            </xsl:choose>
-          </fo:inline>:
-          <fo:block margin="4pt 0 4pt 6pt">
-            <xsl:value-of select="."/>
-            <xsl:if test="@datechar"> (<xsl:value-of select="@datechar"/>)</xsl:if>
-            <xsl:if test="name()='unitdate'"> (date of creation)</xsl:if>
-          </fo:block>
-        </fo:block>
-      </xsl:template>
-
       <xsl:otherwise>
         <xsl:choose>
           <xsl:when test="@label"><fo:block xsl:use-attribute-sets="h4ID"><xsl:value-of select="@label"/></fo:block><xsl:apply-templates/></xsl:when>
@@ -1563,82 +1516,6 @@
         <fo:table-cell number-columns-spanned="4"><xsl:call-template name="toc"/></fo:table-cell>
       </fo:table-row>
     </xsl:if>
-  </xsl:template>
-  <!--This is a named template that processes all the components  -->
-  <xsl:template name="clevel">
-    <!-- Establishes which level is being processed in order to provided indented displays. -->
-    <xsl:param name="level" />
-    <xsl:variable name="clevelMargin" select="'2pt'">
-      <!-- Uncomment for indented series descriptions
-      <xsl:choose>
-        <xsl:when test="$level = 1">4pt</xsl:when>
-        <xsl:when test="$level = 2">12pt</xsl:when>
-        <xsl:when test="$level = 3">20pt</xsl:when>
-        <xsl:when test="$level = 4">28pt</xsl:when>
-        <xsl:when test="$level = 5">36pt</xsl:when>
-        <xsl:when test="$level = 6">44pt</xsl:when>
-        <xsl:when test="$level = 7">52pt</xsl:when>
-        <xsl:when test="$level = 8">60pt</xsl:when>
-        <xsl:when test="$level = 9">68pt</xsl:when>
-        <xsl:when test="$level = 10">74pt</xsl:when>
-        <xsl:when test="$level = 11">82pt</xsl:when>
-        <xsl:when test="$level = 12">90pt</xsl:when>
-      </xsl:choose>
-      -->
-    </xsl:variable>
-    <xsl:choose>
-      <!--Formats Series and Groups  -->
-      <xsl:when test="@level='subcollection' or @level='subgrp' or @level='series'
-        or @level='subseries' or @level='collection'or @level='fonds' or
-        @level='recordgrp' or @level='subfonds' or @level='class' or
-        (@level='otherlevel' and not(parent::ead:c[@level='series']))">
-
-        <fo:table-row background-color="#ffffff" border-top="1pt solid #000" text-align="left">
-          <fo:table-cell margin-left="{$clevelMargin}" padding-top="4pt" number-columns-spanned="4">
-            <xsl:apply-templates select="ead:did" mode="dscSeriesTitle"/>
-            <xsl:apply-templates select="ead:did" mode="dscSeries"/>
-            <xsl:value-of select="self::bioghist"/>
-          </fo:table-cell>
-        </fo:table-row>
-
-        <!-- Adds column headings if series/subseries is followed by an item -->
-        <xsl:if test="child::*[@level][1][@level='item' or @level='file' or @level='otherlevel']">
-          <fo:table-row border-top="1px solid #000" border-bottom="1pt solid #000" margin-top="3pt">
-            <fo:table-cell margin-left="{$clevelMargin}" padding-top="4pt" number-columns-spanned="4">
-              <fo:block text-align="center" xsl:use-attribute-sets="h4">
-                File / item list
-              </fo:block>
-            </fo:table-cell>
-          </fo:table-row>
-          <xsl:call-template name="tableHeaders"/>
-        </xsl:if>
-      </xsl:when>
-
-      <xsl:otherwise>
-        <fo:table-row border-top="1px solid #000" padding-left="2pt" margin-left="2pt">
-          <fo:table-cell>
-            <fo:block><xsl:value-of select="ead:did/ead:unitid"/></fo:block>
-          </fo:table-cell>
-          <fo:table-cell>
-            <fo:block font-weight="bold"><xsl:apply-templates select="ead:did" mode="dsc"/></fo:block>
-          </fo:table-cell>
-          <fo:table-cell>
-            <fo:block><xsl:value-of select="ead:did/ead:unitdate"/></fo:block>
-          </fo:table-cell>
-          <fo:table-cell>
-            <fo:block><xsl:value-of select="ead:did/ead:physdesc"/></fo:block>
-          </fo:table-cell>
-        </fo:table-row>
-        <fo:table-row padding-left="2pt" margin-left="2pt">
-          <fo:table-cell/>
-          <fo:table-cell number-columns-spanned="3">
-            <fo:block><xsl:apply-templates select="ead:did" mode="itemDsc"/></fo:block>
-          </fo:table-cell>
-        </fo:table-row>
-      </xsl:otherwise>
-    </xsl:choose>
-    <!-- Calls child components -->
-    <xsl:apply-templates select="ead:c | ead:c01 | ead:c02 | ead:c03 | ead:c04 | ead:c05 | ead:c06 | ead:c07 | ead:c08 | ead:c09 | ead:c10 | ead:c11 | ead:c12"/>
   </xsl:template>
 
   <!-- Named template to generate table headers -->
