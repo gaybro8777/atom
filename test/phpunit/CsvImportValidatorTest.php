@@ -18,6 +18,8 @@ class CsvImportValidatorTest extends \PHPUnit\Framework\TestCase
 
         $this->csvHeader = 'legacyId,parentId,identifier,title,levelOfDescription,extentAndMedium,repository,culture';
 
+        $this->csvHeaderWithDigitalObjectCols = 'legacyId,parentId,identifier,title,levelOfDescription,extentAndMedium,repository,digitalObjectPath,digitalObjectUri,culture';
+
         $this->csvHeaderWithEventType = 'legacyId,parentId,identifier,title,levelOfDescription,extentAndMedium,eventTypes,eventDates,eventStartDates,eventEndDates,repository,culture';
         $this->csvHeaderWithAllEventCols = 'legacyId,parentId,identifier,title,levelOfDescription,extentAndMedium,eventTypes,eventDates,eventStartDates,eventEndDates,eventActors,eventActorHistories,eventPlaces,repository,culture';
 
@@ -56,6 +58,13 @@ class CsvImportValidatorTest extends \PHPUnit\Framework\TestCase
             '"","","","Chemise","","","","fr"',
             '"D20202", "DJ002", "", "Voûte, étagère 0074", "", "", "", ""',
             '"", "DJ003", "ID4", "Title Four", "","", "", "en"',
+        ];
+
+        $this->csvDataWithDigitalObjectCols = [
+            '"B10101 "," DJ001","ID1 ","Some Photographs","","Extent and medium 1","","","",""',
+            '"","","","Chemise","","","","","","fr"',
+            '"D20202", "DJ002", "", "Voûte, étagère 0074", "", "", "","","", ""',
+            '"", "DJ003", "ID4", "Title Four", "","", "","","", "en"',
         ];
 
         $this->csvDataWithEventType = [
@@ -285,7 +294,13 @@ class CsvImportValidatorTest extends \PHPUnit\Framework\TestCase
             'unix_csv_with_event_type.csv' => $this->csvHeaderWithEventType."\n".implode("\n", $this->csvDataWithEventType),
             'unix_csv_with_event_type_mismatches.csv' => $this->csvHeaderWithEventType."\n".implode("\n", $this->csvDataWithEventTypeMismatches),
             'unix_csv_with_event_type_all_cols.csv' => $this->csvHeaderWithAllEventCols."\n".implode("\n", $this->csvDataWithAllEventCols),
+            'unix_csv_with_digital_object_cols.csv' => $this->csvHeaderWithDigitalObjectCols."\n".implode("\n", $this->csvDataWithDigitalObjectCols),
             'root.csv' => $this->csvHeader."\n".implode("\n", $this->csvData),
+            'digital_objects' => [
+                'a.png' => random_bytes(100),
+                'b.png' => random_bytes(100),
+                'c.png' => random_bytes(100),
+            ],
         ];
 
         $this->vfs = vfsStream::setup('root', null, $directory);
@@ -392,6 +407,13 @@ class CsvImportValidatorTest extends \PHPUnit\Framework\TestCase
         $this->assertSame('CsvSampleValuesTest,CsvLegacyIdTest', $csvValidator->getOption('specificTests'));
     }
 
+    public function testSetPathToDigitalObjectsOption()
+    {
+        $csvValidator = new CsvImportValidator($this->context, null, null);
+        $csvValidator->setOption('pathToDigitalObjects', '/usr/test/example');
+        $this->assertSame('/usr/test/example', $csvValidator->getOption('pathToDigitalObjects'));
+    }
+
     public function testDefaultOptions()
     {
         $csvValidator = new CsvImportValidator($this->context, null, null);
@@ -401,6 +423,7 @@ class CsvImportValidatorTest extends \PHPUnit\Framework\TestCase
         $this->assertSame(',', $csvValidator->getOption('separator'));
         $this->assertSame('"', $csvValidator->getOption('enclosure'));
         $this->assertSame('', $csvValidator->getOption('specificTests'));
+        $this->assertSame('', $csvValidator->getOption('pathToDigitalObjects'));
     }
 
     /**
@@ -414,6 +437,10 @@ class CsvImportValidatorTest extends \PHPUnit\Framework\TestCase
     {
         $filename = $this->vfs->url().$options['filename'];
         $validatorOptions = isset($options['validatorOptions']) ? $options['validatorOptions'] : null;
+
+        if (isset($validatorOptions['pathToDigitalObjects'])) {
+            $validatorOptions['pathToDigitalObjects'] = $this->vfs->url().$validatorOptions['pathToDigitalObjects'];
+        }
 
         $csvValidator = new CsvImportValidator($this->context, null, $validatorOptions);
         $this->runValidator($csvValidator, $filename, $options['csvValidatorClasses']);
@@ -1495,6 +1522,119 @@ class CsvImportValidatorTest extends \PHPUnit\Framework\TestCase
                     CsvBaseTest::TEST_STATUS => CsvEventValuesTest::RESULT_INFO,
                     CsvBaseTest::TEST_RESULTS => [
                         'Checking columns: eventTypes,eventDates,eventStartDates,eventEndDates,eventActors,eventActorHistories,eventPlaces',
+                    ],
+                    CsvBaseTest::TEST_DETAIL => [
+                    ],
+                ],
+            ],
+
+            /*
+             * Test CsvDigitalObjectPathTest.class.php
+             *
+             * Add test for new param.
+             *
+             * Tests:
+             * - digitalObjectPath column missing
+             * - digitalObjectPath column present but empty
+             * - digitalObjectPath column present and populated with:
+             * -- valid file path
+             * -- duplicated file path
+             * -- invalid file path
+             * -- empty value
+             * -- digitalObjectUri column present and populated
+             */
+            [
+                'CsvDigitalObjectPathTest-digitalObjectPathMissing' => [
+                    'csvValidatorClasses' => ['CsvDigitalObjectPathTest' => CsvDigitalObjectPathTest::class],
+                    'filename' => '/unix_csv_without_utf8_bom.csv',
+                    'testname' => 'CsvDigitalObjectPathTest',
+                    CsvBaseTest::TEST_TITLE => CsvDigitalObjectPathTest::TITLE,
+                    CsvBaseTest::TEST_STATUS => CsvDigitalObjectPathTest::RESULT_INFO,
+                    CsvBaseTest::TEST_RESULTS => [
+                        "Column 'digitalObjectPath' not present in CSV. Nothing to verify.",
+                    ],
+                    CsvBaseTest::TEST_DETAIL => [
+                    ],
+                ],
+            ],
+
+            [
+                'CsvDigitalObjectPathTest-digitalObjectPathEmpty' => [
+                    'csvValidatorClasses' => ['CsvDigitalObjectPathTest' => CsvDigitalObjectPathTest::class],
+                    'filename' => '/unix_csv_with_digital_object_cols.csv',
+                    'testname' => 'CsvDigitalObjectPathTest',
+                    CsvBaseTest::TEST_TITLE => CsvDigitalObjectPathTest::TITLE,
+                    CsvBaseTest::TEST_STATUS => CsvDigitalObjectPathTest::RESULT_INFO,
+                    CsvBaseTest::TEST_RESULTS => [
+                        "Column 'digitalObjectPath' found.",
+                        'Digital object folder location not specified.',
+                    ],
+                    CsvBaseTest::TEST_DETAIL => [
+                    ],
+                ],
+            ],
+
+            [
+                'CsvDigitalObjectPathTest-digitalObjectPathEmpty' => [
+                    'csvValidatorClasses' => ['CsvDigitalObjectPathTest' => CsvDigitalObjectPathTest::class],
+                    'filename' => '/unix_csv_with_digital_object_cols.csv',
+                    'testname' => 'CsvDigitalObjectPathTest',
+                    'validatorOptions' => [
+                        'source' => 'testsourcefile.csv',
+                        'className' => 'QubitInformationObject',
+                        'className' => 'QubitInformationObject',
+                        'pathToDigitalObjects' => '/digital_objects',
+                    ],
+                    CsvBaseTest::TEST_TITLE => CsvDigitalObjectPathTest::TITLE,
+                    CsvBaseTest::TEST_STATUS => CsvDigitalObjectPathTest::RESULT_INFO,
+                    CsvBaseTest::TEST_RESULTS => [
+                        "Column 'digitalObjectPath' found.",
+                        "Column 'digitalObjectPath' is empty.",
+                    ],
+                    CsvBaseTest::TEST_DETAIL => [
+                    ],
+                ],
+            ],
+
+            /*
+             * Test CsvDigitalObjectUriTest.class.php
+             *
+             * Tests:
+             * - digitalObjectUri column missing
+             * - digitalObjectUri column present but empty
+             * - digitalObjectUri column present and populated with:
+             * -- valid URI
+             * -- incorrect scheme URI (e.g. ftp://)
+             * -- duplicated URI
+             * -- invalid URI
+             * -- empty value
+             * -- digitalObjectUri column present and populated
+             */
+            [
+                'CsvDigitalObjectUriTest-digitalObjectUriMissing' => [
+                    'csvValidatorClasses' => ['CsvDigitalObjectUriTest' => CsvDigitalObjectUriTest::class],
+                    'filename' => '/unix_csv_without_utf8_bom.csv',
+                    'testname' => 'CsvDigitalObjectUriTest',
+                    CsvBaseTest::TEST_TITLE => CsvDigitalObjectUriTest::TITLE,
+                    CsvBaseTest::TEST_STATUS => CsvDigitalObjectUriTest::RESULT_INFO,
+                    CsvBaseTest::TEST_RESULTS => [
+                        "Column 'digitalObjectUri' not present in CSV. Nothing to verify.",
+                    ],
+                    CsvBaseTest::TEST_DETAIL => [
+                    ],
+                ],
+            ],
+
+            [
+                'CsvDigitalObjectUriTest-digitalObjectUriEmpty' => [
+                    'csvValidatorClasses' => ['CsvDigitalObjectUriTest' => CsvDigitalObjectUriTest::class],
+                    'filename' => '/unix_csv_with_digital_object_cols.csv',
+                    'testname' => 'CsvDigitalObjectUriTest',
+                    CsvBaseTest::TEST_TITLE => CsvDigitalObjectUriTest::TITLE,
+                    CsvBaseTest::TEST_STATUS => CsvDigitalObjectUriTest::RESULT_INFO,
+                    CsvBaseTest::TEST_RESULTS => [
+                        "Column 'digitalObjectUri' found.",
+                        "Column 'digitalObjectUri' is empty.",
                     ],
                     CsvBaseTest::TEST_DETAIL => [
                     ],
